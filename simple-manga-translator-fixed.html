@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manga Translator Simpel</title>
+    <!-- Library yang diperlukan -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/2.1.1/tesseract.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #4a6fa5;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .upload-area {
+            border: 2px dashed #bbd0e8;
+            padding: 30px;
+            text-align: center;
+            margin: 20px 0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .upload-area:hover {
+            border-color: #4a6fa5;
+            background-color: #f0f4f9;
+        }
+        .btn {
+            background-color: #4a6fa5;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        .btn:hover {
+            background-color: #3a5a85;
+        }
+        .btn:disabled {
+            background-color: #b0b0b0;
+            cursor: not-allowed;
+        }
+        .progress-container {
+            margin: 15px 0;
+        }
+        .progress {
+            height: 15px;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            background-color: #4a6fa5;
+            width: 0%;
+            transition: width 0.3s;
+        }
+        .status {
+            font-size: 14px;
+            color: #555;
+            margin: 10px 0;
+            text-align: center;
+            min-height: 20px;
+        }
+        .hidden {
+            display: none;
+        }
+        #result-area {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .debug-info {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #888;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Manga Translator Simpel</h1>
+        
+        <div class="upload-area" id="upload-area">
+            <p><strong>Klik atau Seret file gambar/ZIP ke sini</strong></p>
+            <p>Support: JPG, PNG, WebP, dan ZIP</p>
+            <input type="file" id="file-input" class="hidden" accept="image/jpeg,image/png,image/webp,application/zip" multiple>
+            <button class="btn" onclick="document.getElementById('file-input').click()">Pilih File</button>
+        </div>
+        
+        <div class="progress-container">
+            <div class="status" id="status-text">Siap menerjemahkan manga</div>
+            <div class="progress">
+                <div class="progress-bar" id="progress-bar"></div>
+            </div>
+        </div>
+        
+        <div id="result-area" class="hidden">
+            <button id="download-all-btn" class="btn">Download Semua Hasil</button>
+        </div>
+        
+        <div class="debug-info" id="debug-info"></div>
+    </div>
+
+    <script>
+        // Variabel global
+        const processedImages = [];
+        let totalFiles = 0;
+        let processedCount = 0;
+        let zipMode = false;
+        let debugMode = true; // Untuk menampilkan informasi debug
+        
+        // Fungsi debug
+        function debug(message) {
+            if (debugMode) {
+                console.log(message);
+                document.getElementById('debug-info').textContent = message;
+            }
+        }
+        
+        // Event listeners saat halaman dimuat
+        document.addEventListener('DOMContentLoaded', function() {
+            const fileInput = document.getElementById('file-input');
+            const uploadArea = document.getElementById('upload-area');
+            const downloadAllBtn = document.getElementById('download-all-btn');
+            
+            // File input event
+            fileInput.addEventListener('change', function(e) {
+                if (e.target.files && e.target.files.length > 0) {
+                    handleFiles(e.target.files);
+                } else {
+                    debug("Tidak ada file yang dipilih");
+                }
+            });
+            
+            // Download semua hasil
+            downloadAllBtn.addEventListener('click', downloadAllProcessed);
+            
+            // Drag and drop events
+            uploadArea.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                this.style.borderColor = '#4a6fa5';
+                this.style.backgroundColor = '#f0f4f9';
+            });
+            
+            uploadArea.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                this.style.borderColor = '#bbd0e8';
+                this.style.backgroundColor = 'white';
+            });
+            
+            uploadArea.addEventListener('drop', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                this.style.borderColor = '#bbd0e8';
+                this.style.backgroundColor = 'white';
+                
+                if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    handleFiles(e.dataTransfer.files);
+                } else {
+                    debug("Tidak ada file yang di-drop");
+                }
+            });
+        });
+        
+        // Fungsi untuk menangani file yang dipilih
+        function handleFiles(files) {
+            if (!files || files.length === 0) {
+                debug("Tidak ada file yang valid");
+                return;
+            }
+            
+            // Reset state
+            processedImages.length = 0;
+            processedCount = 0;
+            zipMode = false;
+            totalFiles = 0;
+            
+            updateStatus('Memulai proses...', 5);
+            document.getElementById('result-area').classList.add('hidden');
+            
+            // Hitung total file yang perlu diproses
+            let hasZip = false;
+            let directImageCount = 0;
+            
+            // Cek semua file yang dipilih
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                debug(`File ditemukan: ${file.name} (${file.type})`);
+                
+                if (file.type === 'application/zip') {
+                    hasZip = true;
+                } else if (file.type.startsWith('image/')) {
+                    directImageCount++;
+                }
+            }
+            
+            debug(`Ditemukan: ZIP=${hasZip}, Images=${directImageCount}`);
+            
+            if (hasZip) {
+                // Jika ada ZIP, proses itu dulu
+                zipMode = true;
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    if (file.type === 'application/zip') {
+                        processZipFile(file);
+                    }
+                }
+            } else if (directImageCount > 0) {
+                // Proses gambar langsung
+                totalFiles = directImageCount;
+                debug(`Total file gambar: ${totalFiles}`);
+                
+                for (let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    if (file.type.startsWith('image/')) {
+                        processImageFile(file);
+                    }
+                }
+            } else {
+                updateStatus('Tidak ada file valid yang dipilih', 0);
+                debug("Tidak ada file valid yang dapat diproses");
+            }
+        }
+        
+        // Proses file gambar individual
+        function processImageFile(file) {
+            debug(`Memproses gambar: ${file.name}`);
+            updateStatus(`Memproses ${file.name}`, 10);
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                if (e.target && e.target.result) {
+                    const imageUrl = e.target.result;
+                    detectAndTranslateText(imageUrl, file.name);
+                } else {
+                    debug("Error: Hasil FileReader tidak valid");
+                    handleProcessError(file.name, "File tidak dapat dibaca");
+                }
+            };
+            reader.onerror = function(e) {
+                debug(`Error membaca file: ${e}`);
+                handleProcessError(file.name, "Error membaca file");
+            };
+            
+            try {
+                reader.readAsDataURL(file);
+            } catch (error) {
+                debug(`Exception saat membaca file: ${error}`);
+                handleProcessError(file.name, "Gagal memproses file");
+            }
+        }
+        
+        // Proses file ZIP
+        function processZipFile(file) {
+            debug(`Memproses ZIP: ${file.name}`);
+            updateStatus('Mengekstrak file ZIP...', 10);
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                if (!e.target || !e.target.result) {
+                    debug("Error: Hasil FileReader untuk ZIP tidak valid");
+                    handleProcessError(file.name, "File ZIP tidak dapat dibaca");
+                    return;
+                }
+                
+                const zip = new JSZip();
+                
+                zip.loadAsync(e.target.result)
+                    .then(function(contents) {
+                        const imagePromises = [];
+                        
+                        contents.forEach(function(relativePath, zipEntry) {
+                            if (!zipEntry.dir) {
+                                const fileExtension = relativePath.split('.').pop().toLowerCase();
+                                const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+                                
+                                if (allowedExtensions.includes(fileExtension)) {
+                                    const promise = zipEntry.async('blob').then(function(blob) {
+                                        return {
+                                            name: zipEntry.name,
+                                            blob: new Blob([blob], { type: `image/${fileExtension}` })
+                                        };
+                                    });
+                                    imagePromises.push(promise);
+                                }
+                            }
+                        });
+                        
+                        Promise.all(imagePromises).then(function(imageObjects) {
+                            totalFiles = imageObjects.length;
+                            debug(`Gambar dalam ZIP: ${totalFiles}`);
+                            
+                            if (totalFiles === 0) {
+                                updateStatus('Tidak ditemukan gambar dalam ZIP', 0);
+                                return;
+                            }
+                            
+                            updateStatus(`Ditemukan ${totalFiles} gambar dalam ZIP, mulai proses...`, 20);
+                            
+                            // Proses setiap gambar
+                            imageObjects.forEach(function(imgObj) {
+                                const reader = new FileReader();
+                                reader.onload = function(e) {
+                                    if (e.target && e.target.result) {
+                                        detectAndTranslateText(e.target.result, imgObj.name);
+                                    } else {
+                                        debug(`Error: Hasil FileReader untuk gambar dalam ZIP tidak valid: ${imgObj.name}`);
+                                        handleProcessError(imgObj.name, "Gambar dalam ZIP tidak dapat dibaca");
+                                    }
+                                };
+                                reader.onerror = function() {
+                                    debug(`Error membaca gambar dalam ZIP: ${imgObj.name}`);
+                                    handleProcessError(imgObj.name, "Error membaca gambar dalam ZIP");
+                                };
+                                
+                                try {
+                                    reader.readAsDataURL(imgObj.blob);
+                                } catch (error) {
+                                    debug(`Exception saat membaca gambar dalam ZIP: ${error}`);
+                                    handleProcessError(imgObj.name, "Gagal memproses gambar dalam ZIP");
+                                }
+                            });
+                        });
+                    })
+                    .catch(function(error) {
+                        console.error('Error membaca ZIP:', error);
+                        debug(`Error ekstrak ZIP: ${error.message}`);
+                        updateStatus('Error membuka ZIP: ' + error.message, 0);
+                    });
+            };
+            reader.onerror = function() {
+                debug(`Error membaca file ZIP: ${file.name}`);
+                updateStatus('Error membaca file ZIP', 0);
+            };
+            
+            try {
+                reader.readAsArrayBuffer(file);
+            } catch (error) {
+                debug(`Exception saat membaca ZIP: ${error}`);
+                updateStatus('Gagal memproses file ZIP', 0);
+            }
+        }
+        
+        // Deteksi dan terjemahkan teks
+        function detectAndTranslateText(imageUrl, filename) {
+            if (!imageUrl) {
+                debug(`Error: URL gambar tidak valid untuk ${filename}`);
+                handleProcessError(filename, "URL gambar tidak valid");
+                return;
+            }
+            
+            debug(`Deteksi teks pada: ${filename}`);
+            
+            // Inisialisasi Tesseract worker
+            const worker = Tesseract.createWorker({
+                logger: function(m) {
+                    if (m.status === 'recognizing text') {
+                        if (totalFiles > 0) {
+                            const fileProgress = (processedCount / totalFiles) * 100;
+                            const recognitionProgress = m.progress * 20;
+                            const totalProgress = Math.min(fileProgress + recognitionProgress, 99);
+                            updateProgressBar(totalProgress);
+                        }
+                    }
+                }
+            });
+            
+            (async () => {
+                try {
+                    // Update status
+                    updateStatus(`Memproses ${filename} (${processedCount + 1}/${totalFiles})`, 20);
+                    
+                    // Load dan initialize Tesseract
+                    await worker.load();
+                    await worker.loadLanguage('jpn+eng');
+                    await worker.initialize('jpn+eng');
+                    
+                    debug(`OCR engine dimuat untuk: ${filename}`);
+                    
+                    // Konfigurasi untuk akurasi tinggi
+                    await worker.setParameters({
+                        tessjs_create_hocr: '0',
+                        tessjs_create_tsv: '0',
+                        tessjs_create_box: '0',
+                        tessjs_create_unlv: '0',
+                        tessjs_create_osd: '0'
+                    });
+                    
+                    // Mendeteksi teks
+                    const result = await worker.recognize(imageUrl);
+                    debug(`Teks terdeteksi pada: ${filename}`);
+                    
+                    // Terjemahkan teks terdeteksi (simulasi, bisa diganti dengan API terjemahan sebenarnya)
+                    const translatedText = simulateTranslation(result.data.text);
+                    
+                    // Buat gambar baru dengan teks terjemahan
+                    const processedImageUrl = await overlayTranslatedText(imageUrl, result.data.words, translatedText);
+                    debug(`Gambar hasil terjemahan dibuat: ${filename}`);
+                    
+                    // Simpan hasil
+                    processedImages.push({
+                        name: `translated_${filename}`,
+                        url: processedImageUrl
+                    });
+                    
+                    // Update count dan progress
+                    processedCount++;
+                    if (totalFiles > 0) {
+                        const progress = (processedCount / totalFiles) * 100;
+                        updateProgressBar(progress);
+                    }
+                    
+                    if (processedCount === totalFiles) {
+                        completeProcessing();
+                    }
+                    
+                    await worker.terminate();
+                } catch (error) {
+                    console.error('Error dalam OCR:', error);
+                    debug(`Error OCR pada ${filename}: ${error.message}`);
+                    handleProcessError(filename, `Error OCR: ${error.message}`);
+                }
+            })();
+        }
+        
+        // Simulasi terjemahan teks Jepang ke Indonesia
+        function simulateTranslation(text) {
+            if (!text || text.trim() === '') return '';
+            debug(`Menerjemahkan teks: ${text.substring(0, 30)}...`);
+            
+            // Contoh mapping sederhana untuk demo
+            const japaneseWords = {
+                'こんにちは': 'Halo',
+                'さようなら': 'Selamat tinggal',
+                '私': 'Saya',
+                '愛': 'Cinta',
+                'あなた': 'Kamu',
+                '何': 'Apa',
+                '誰': 'Siapa',
+                '行く': 'Pergi',
+                '来る': 'Datang',
+                '見る': 'Melihat',
+                '食べる': 'Makan',
+                '飲む': 'Minum',
+                '学校': 'Sekolah',
+                '友達': 'Teman',
+                '家': 'Rumah',
+                '車': 'Mobil',
+                '猫': 'Kucing',
+                '犬': 'Anjing',
+                '本': 'Buku',
+                '水': 'Air',
+                '火': 'Api',
+                '空': 'Langit',
+                '海': 'Laut',
+                '山': 'Gunung',
+                '川': 'Sungai'
+            };
+            
+            let translated = text;
+            
+            // Ganti kata-kata yang cocok
+            Object.keys(japaneseWords).forEach(jp => {
+                const regex = new RegExp(jp, 'g');
+                translated = translated.replace(regex, japaneseWords[jp]);
+            });
+            
+            return translated;
+        }
+        
+        // Overlay teks terjemahan pada gambar
+        async function overlayTranslatedText(imageUrl, words, translatedText) {
+            if (!imageUrl) {
+                debug("Error: URL gambar tidak valid untuk overlay");
+                return null;
+            }
+            
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                
+                img.onload = function() {
+                    // Buat canvas dengan ukuran gambar
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    
+                    // Gambar image asli ke canvas
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    
+                    // Tutup area teks asli dengan kotak putih
+                    if (words && words.length > 0) {
+                        words.forEach(word => {
+                            const { bbox } = word;
+                            if (bbox) {
+                                ctx.fillStyle = 'white';
+                                ctx.fillRect(bbox.x0, bbox.y0, bbox.x1 - bbox.x0, bbox.y1 - bbox.y0);
+                            }
+                        });
+                    }
+                    
+                    // Tambahkan teks terjemahan
+                    if (translatedText && translatedText.trim() !== '') {
+                        const lines = translatedText.split('\n');
+                        
+                        ctx.fillStyle = 'black';
+                        ctx.font = '16px Arial';
+                        ctx.textAlign = 'center';
+                        
+                        lines.forEach((line, index) => {
+                            if (line.trim() !== '') {
+                                const y = 50 + (index * 20);
+                                ctx.fillText(line, canvas.width / 2, y);
+                            }
+                        });
+                    }
+                    
+                    // Konversi canvas ke URL data
+                    try {
+                        const dataUrl = canvas.toDataURL('image/png');
+                        resolve(dataUrl);
+                    } catch (error) {
+                        debug(`Error saat mengkonversi canvas ke gambar: ${error}`);
+                        reject(error);
+                    }
+                };
+                
+                img.onerror = function(error) {
+                    debug(`Error saat memuat gambar untuk overlay: ${error}`);
+                    reject(new Error("Gagal memuat gambar"));
+                };
+                
+                img.src = imageUrl;
+            });
+        }
+        
+        // Download semua gambar hasil terjemahan
+        function downloadAllProcessed() {
+            if (processedImages.length === 0) {
+                debug("Tidak ada gambar hasil yang bisa didownload");
+                updateStatus("Tidak ada gambar hasil yang bisa didownload", 0);
+                return;
+            }
+            
+            debug(`Mempersiapkan download ${processedImages.length} gambar hasil`);
+            
+            try {
+                const zip = new JSZip();
+                
+                // Tambahkan setiap gambar ke ZIP
+                processedImages.forEach((image, index) => {
+                    // Convert data URL to blob
+                    const dataUrlParts = image.url.split(',');
+                    if (dataUrlParts.length !== 2) {
+                        debug(`Format data URL tidak valid untuk ${image.name}`);
+                        return;
+                    }
+                    
+                    try {
+                        const byteString = atob(dataUrlParts[1]);
+                        const mimeType = dataUrlParts[0].split(':')[1].split(';')[0];
+                        
+                        const ab = new ArrayBuffer(byteString.length);
+                        const ia = new Uint8Array(ab);
+                        for (let i = 0; i < byteString.length; i++) {
+                            ia[i] = byteString.charCodeAt(i);
+                        }
+                        
+                        const blob = new Blob([ab], {type: mimeType});
+                        zip.file(image.name, blob);
+                    } catch (error) {
+                        debug(`Error saat memproses gambar untuk ZIP: ${error}`);
+                    }
+                });
+                
+                // Generate dan download ZIP
+                zip.generateAsync({type: 'blob'})
+                    .then(function(content) {
+                        const link = document.createElement('a');
+                        link.href = URL.createObjectURL(content);
+                        link.download = 'translated_manga.zip';
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        debug("ZIP didownload");
+                    })
+                    .catch(function(error) {
+                        debug(`Error saat membuat ZIP: ${error}`);
+                        updateStatus("Gagal membuat file ZIP", 0);
+                    });
+            } catch (error) {
+                debug(`Error saat mempersiapkan download: ${error}`);
+                updateStatus("Gagal mempersiapkan download", 0);
+            }
+        }
+        
+        // Selesai memproses semua gambar
+        function completeProcessing() {
+            debug(`Pemrosesan selesai: ${processedCount} gambar diterjemahkan`);
+            updateStatus(`Selesai! ${processedCount} gambar telah diterjemahkan`, 100);
+            document.getElementById('result-area').classList.remove('hidden');
+            
+            // Jika hanya ada 1 gambar, download otomatis
+            if (processedImages.length === 1) {
+                try {
+                    const link = document.createElement('a');
+                    link.href = processedImages[0].url;
+                    link.download = processedImages[0].name;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    debug("File tunggal didownload otomatis");
+                } catch (error) {
+                    debug(`Error saat download file tunggal: ${error}`);
+                    updateStatus("Gagal download file tunggal", 0);
+                }
+            }
+        }
+        
+        // Tangani error pada proses file
+        function handleProcessError(filename, errorMessage) {
+            debug(`Error pada ${filename}: ${errorMessage}`);
+            updateStatus(`Error saat memproses ${filename}: ${errorMessage}`, 0);
+            
+            processedCount++;
+            if (totalFiles > 0 && processedCount === totalFiles) {
+                if (processedImages.length > 0) {
+                    completeProcessing();
+                } else {
+                    updateStatus("Pemrosesan selesai tetapi tidak ada file yang berhasil diproses", 0);
+                }
+            }
+        }
+        
+        // Update status text dan progress bar
+        function updateStatus(message, progress) {
+            document.getElementById('status-text').textContent = message;
+            updateProgressBar(progress);
+        }
+        
+        function updateProgressBar(progress) {
+            document.getElementById('progress-bar').style.width = progress + '%';
+        }
+    </script>
+</body>
+</html>
