@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ichigo Manga Translator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f2f5;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }
+        h1 {
+            color: #ff6b6b;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        .drop-area {
+            border: 2px dashed #ff6b6b;
+            padding: 30px;
+            text-align: center;
+            margin: 20px 0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background-color: #fff5f5;
+        }
+        .drop-area:hover, .drop-area.drag-over {
+            border-color: #ff4757;
+            background-color: #ffe8e8;
+        }
+        .btn {
+            background-color: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.2s;
+            display: inline-block;
+        }
+        .btn:hover {
+            background-color: #ff4757;
+        }
+        .btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .progress-bar-container {
+            height: 10px;
+            background-color: #eee;
+            border-radius: 5px;
+            margin: 15px 0;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            background-color: #ff6b6b;
+            width: 0%;
+            transition: width 0.3s;
+        }
+        .status {
+            text-align: center;
+            margin: 10px 0;
+            font-size: 14px;
+            color: #666;
+            min-height: 18px;
+        }
+        .image-preview {
+            max-width: 100%;
+            max-height: 300px;
+            margin: 10px auto;
+            display: block;
+            border-radius: 5px;
+        }
+        .hidden {
+            display: none;
+        }
+        .gallery {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .gallery-item {
+            width: calc(33.33% - 10px);
+            position: relative;
+        }
+        .gallery-item img {
+            width: 100%;
+            height: auto;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .gallery-item .download-btn {
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+            background: rgba(255,107,107,0.8);
+            border: none;
+            color: white;
+            border-radius: 3px;
+            cursor: pointer;
+            padding: 3px 8px;
+            font-size: 12px;
+        }
+        @media (max-width: 600px) {
+            .gallery-item {
+                width: calc(50% - 10px);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Ichigo Manga Translator</h1>
+        
+        <div id="drop-area" class="drop-area">
+            <p><strong>Drag & Drop manga atau klik untuk upload</strong></p>
+            <p>Support: JPG, PNG, dan ZIP file</p>
+            <input type="file" id="file-input" class="hidden" accept="image/jpeg,image/png,image/webp,application/zip" multiple>
+        </div>
+        
+        <div class="status" id="status">Siap menerjemahkan manga</div>
+        <div class="progress-bar-container">
+            <div class="progress-bar" id="progress-bar"></div>
+        </div>
+        
+        <div id="preview-container" class="hidden">
+            <img id="preview-image" class="image-preview" src="" alt="Preview">
+        </div>
+        
+        <div id="result-container" class="hidden">
+            <button id="download-all" class="btn">Download Semua</button>
+            <div id="gallery" class="gallery"></div>
+        </div>
+    </div>
+
+    <script>
+        // Variabel global
+        const translatedImages = [];
+        let isProcessing = false;
+        
+        // DOM Elements
+        const dropArea = document.getElementById('drop-area');
+        const fileInput = document.getElementById('file-input');
+        const status = document.getElementById('status');
+        const progressBar = document.getElementById('progress-bar');
+        const previewContainer = document.getElementById('preview-container');
+        const previewImage = document.getElementById('preview-image');
+        const resultContainer = document.getElementById('result-container');
+        const gallery = document.getElementById('gallery');
+        const downloadAllBtn = document.getElementById('download-all');
+        
+        // Event Listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            // Setup drag and drop
+            dropArea.addEventListener('click', () => fileInput.click());
+            
+            // File input change event
+            fileInput.addEventListener('change', handleFiles);
+            
+            // Drag events
+            dropArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropArea.classList.add('drag-over');
+            });
+            
+            dropArea.addEventListener('dragleave', () => {
+                dropArea.classList.remove('drag-over');
+            });
+            
+            dropArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropArea.classList.remove('drag-over');
+                
+                if (e.dataTransfer.files.length > 0) {
+                    handleFiles({ target: { files: e.dataTransfer.files } });
+                }
+            });
+            
+            // Download all button
+            downloadAllBtn.addEventListener('click', downloadAllImages);
+        });
+        
+        // Handle uploaded files
+        function handleFiles(e) {
+            if (isProcessing) {
+                showStatus("Sedang memproses, tunggu sebentar...");
+                return;
+            }
+            
+            const files = e.target.files;
+            if (!files || files.length === 0) return;
+            
+            // Reset state
+            translatedImages.length = 0;
+            gallery.innerHTML = '';
+            resultContainer.classList.add('hidden');
+            
+            // Check for ZIP files
+            const zipFiles = Array.from(files).filter(file => file.type === 'application/zip');
+            if (zipFiles.length > 0) {
+                processZipFile(zipFiles[0]);
+                return;
+            }
+            
+            // Process image files
+            const imageFiles = Array.from(files).filter(file => 
+                file.type === 'image/jpeg' || 
+                file.type === 'image/png' || 
+                file.type === 'image/webp'
+            );
+            
+            if (imageFiles.length === 0) {
+                showStatus("Tidak ada file valid yang dipilih. Upload JPG, PNG, atau ZIP.");
+                return;
+            }
+            
+            // If only one image, show preview
+            if (imageFiles.length === 1) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    previewImage.src = e.target.result;
+                    previewContainer.classList.remove('hidden');
+                };
+                reader.readAsDataURL(imageFiles[0]);
+            } else {
+                previewContainer.classList.add('hidden');
+            }
+            
+            processImageFiles(imageFiles);
+        }
+        
+        // Process ZIP file
+        function processZipFile(file) {
+            isProcessing = true;
+            showStatus("Membuka ZIP file...");
+            updateProgress(10);
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const zip = new JSZip();
+                
+                zip.loadAsync(e.target.result)
+                    .then(contents => {
+                        const imageFiles = [];
+                        let filesProcessed = 0;
+                        let totalFiles = 0;
+                        
+                        // Count image files
+                        contents.forEach((path, zipEntry) => {
+                            if (!zipEntry.dir) {
+                                const ext = path.split('.').pop().toLowerCase();
+                                if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
+                                    totalFiles++;
+                                }
+                            }
+                        });
+                        
+                        if (totalFiles === 0) {
+                            showStatus("Tidak ditemukan gambar dalam ZIP");
+                            isProcessing = false;
+                            return;
+                        }
+                        
+                        showStatus(`Ditemukan ${totalFiles} gambar dalam ZIP`);
+                        
+                        // Extract images
+                        contents.forEach((path, zipEntry) => {
+                            if (!zipEntry.dir) {
+                                const ext = path.split('.').pop().toLowerCase();
+                                if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
+                                    zipEntry.async('blob').then(blob => {
+                                        let mimeType = 'image/jpeg';
+                                        if (ext === 'png') mimeType = 'image/png';
+                                        if (ext === 'webp') mimeType = 'image/webp';
+                                        
+                                        const imageFile = new File([blob], path, { type: mimeType });
+                                        
+                                        processImage(imageFile)
+                                            .then(() => {
+                                                filesProcessed++;
+                                                updateProgress(20 + (filesProcessed / totalFiles * 80));
+                                                
+                                                if (filesProcessed === totalFiles) {
+                                                    finishProcessing();
+                                                }
+                                            })
+                                            .catch(error => {
+                                                console.error(`Error processing ${path}:`, error);
+                                                filesProcessed++;
+                                                
+                                                if (filesProcessed === totalFiles) {
+                                                    finishProcessing();
+                                                }
+                                            });
+                                    });
+                                }
+                            }
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Error opening ZIP:', error);
+                        showStatus("Error membuka ZIP file");
+                        isProcessing = false;
+                    });
+            };
+            
+            reader.readAsArrayBuffer(file);
+        }
+        
+        // Process multiple image files
+        function processImageFiles(files) {
+            if (files.length === 0) return;
+            
+            isProcessing = true;
+            showStatus(`Memproses ${files.length} gambar...`);
+            
+            let processed = 0;
+            
+            files.forEach(file => {
+                processImage(file)
+                    .then(() => {
+                        processed++;
+                        updateProgress((processed / files.length) * 100);
+                        
+                        if (processed === files.length) {
+                            finishProcessing();
+                        }
+                    })
+                    .catch(error => {
+                        console.error(`Error processing ${file.name}:`, error);
+                        processed++;
+                        
+                        if (processed === files.length) {
+                            finishProcessing();
+                        }
+                    });
+            });
+        }
+        
+        // Process individual image
+        function processImage(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                
+                reader.onload = async (e) => {
+                    const imageUrl = e.target.result;
+                    
+                    try {
+                        showStatus(`Mendeteksi teks pada ${file.name}...`);
+                        
+                        // Create worker
+                        const worker = await Tesseract.createWorker('jpn+eng');
+                        
+                        // Recognize text
+                        const result = await worker.recognize(imageUrl);
+                        
+                        showStatus(`Menerjemahkan ${file.name}...`);
+                        
+                        // Translate text (simulated)
+                        const translatedText = translateText(result.data.text);
+                        
+                        // Create translated image
+                        const translatedImage = await createTranslatedImage(
+                            imageUrl, 
+                            result.data.words, 
+                            translatedText
+                        );
+                        
+                        // Save result
+                        translatedImages.push({
+                            name: `translated_${file.name}`,
+                            url: translatedImage,
+                            original: file.name
+                        });
+                        
+                        // Add to gallery
+                        addImageToGallery(translatedImage, `translated_${file.name}`);
+                        
+                        // Terminate worker
+                        await worker.terminate();
+                        
+                        resolve();
+                    } catch (error) {
+                        console.error('Processing error:', error);
+                        reject(error);
+                    }
+                };
+                
+                reader.onerror = () => reject(new Error('FileReader error'));
+                
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        // Create translated image
+        async function createTranslatedImage(imageUrl, words, translatedText) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                
+                img.onload = () => {
+                    try {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        
+                        // Draw original image
+                        ctx.drawImage(img, 0, 0);
+                        
+                        // Cover Japanese text with white boxes
+                        ctx.fillStyle = 'white';
+                        if (words && words.length > 0) {
+                            words.forEach(word => {
+                                if (word.bbox) {
+                                    ctx.fillRect(
+                                        word.bbox.x0, 
+                                        word.bbox.y0, 
+                                        word.bbox.x1 - word.bbox.x0, 
+                                        word.bbox.y1 - word.bbox.y0
+                                    );
+                                }
+                            });
+                        }
+                        
+                        // Add translated text
+                        if (translatedText) {
+                            // Auto calculate font size based on image size
+                            const fontSize = Math.max(16, Math.floor(img.width / 30));
+                            ctx.font = `bold ${fontSize}px Arial`;
+                            ctx.fillStyle = 'black';
+                            ctx.textAlign = 'center';
+                            
+                            // Split text into lines
+                            const maxLineWidth = img.width * 0.8;
+                            const lines = getTextLines(ctx, translatedText, maxLineWidth);
+                            
+                            // Position text in speech bubbles if possible
+                            if (words && words.length > 0) {
+                                // Group words into probable speech bubbles
+                                const bubbles = groupWordsIntoBubbles(words);
+                                
+                                // Distribute lines across bubbles
+                                if (bubbles.length > 0) {
+                                    const linesPerBubble = Math.ceil(lines.length / bubbles.length);
+                                    
+                                    bubbles.forEach((bubble, bubbleIndex) => {
+                                        const bubbleLines = lines.slice(
+                                            bubbleIndex * linesPerBubble,
+                                            (bubbleIndex + 1) * linesPerBubble
+                                        );
+                                        
+                                        if (bubbleLines.length > 0) {
+                                            const centerX = (bubble.x0 + bubble.x1) / 2;
+                                            const centerY = (bubble.y0 + bubble.y1) / 2;
+                                            
+                                            bubbleLines.forEach((line, lineIndex) => {
+                                                const y = centerY - ((bubbleLines.length - 1) / 2 - lineIndex) * (fontSize * 1.2);
+                                                ctx.fillText(line, centerX, y);
+                                            });
+                                        }
+                                    });
+                                } else {
+                                    // Fallback: draw at the top
+                                    lines.forEach((line, i) => {
+                                        ctx.fillText(line, canvas.width / 2, 30 + (i * fontSize * 1.2));
+                                    });
+                                }
+                            } else {
+                                // No words detected, just add at the top
+                                lines.forEach((line, i) => {
+                                    ctx.fillText(line, canvas.width / 2, 30 + (i * fontSize * 1.2));
+                                });
+                            }
+                        }
+                        
+                        resolve(canvas.toDataURL('image/png'));
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+                
+                img.onerror = () => reject(new Error('Image load error'));
+                
+                img.src = imageUrl;
+            });
+        }
+        
+        // Group words into probable speech bubbles
+        function groupWordsIntoBubbles(words) {
+            if (!words || words.length === 0) return [];
+            
+            // Simple clustering algorithm
+            const bubbles = [];
+            const processed = new Set();
+            
+            for (let i = 0; i < words.length; i++) {
+                if (processed.has(i)) continue;
+                
+                const word = words[i];
+                if (!word.bbox) continue;
+                
+                const bubble = {
+                    x0: word.bbox.x0,
+                    y0: word.bbox.y0,
+                    x1: word.bbox.x1,
+                    y1: word.bbox.y1,
+                    words: [i]
+                };
+                
+                processed.add(i);
+                
+                // Find nearby words
+                let addedWords = true;
+                while (addedWords) {
+                    addedWords = false;
+                    
+                    for (let j = 0; j < words.length; j++) {
+                        if (processed.has(j)) continue;
+                        
+                        const otherword = words[j];
+                        if (!otherword.bbox) continue;
+                        
+                        // Check if close enough
+                        const distance = Math.max(
+                            Math.abs(otherword.bbox.x0 - bubble.x1),
+                            Math.abs(otherword.bbox.x1 - bubble.x0),
+                            Math.abs(otherword.bbox.y0 - bubble.y1),
+                            Math.abs(otherword.bbox.y1 - bubble.y0)
+                        );
+                        
+                        if (distance < 20) {
+                            // Expand bubble
+                            bubble.x0 = Math.min(bubble.x0, otherword.bbox.x0);
+                            bubble.y0 = Math.min(bubble.y0, otherword.bbox.y0);
+                            bubble.x1 = Math.max(bubble.x1, otherword.bbox.x1);
+                            bubble.y1 = Math.max(bubble.y1, otherword.bbox.y1);
+                            bubble.words.push(j);
+                            processed.add(j);
+                            addedWords = true;
+                        }
+                    }
+                }
+                
+                // Add bubble if it has enough words
+                if (bubble.words.length > 0) {
+                    bubbles.push(bubble);
+                }
+            }
+            
+            return bubbles;
+        }
+        
+        // Split text into lines based on max width
+        function getTextLines(ctx, text, maxWidth) {
+            const words = text.split(' ');
+            const lines = [];
+            let currentLine = words[0];
+            
+            for (let i = 1; i < words.length; i++) {
+                const word = words[i];
+                const width = ctx.measureText(currentLine + ' ' + word).width;
+                
+                if (width < maxWidth) {
+                    currentLine += ' ' + word;
+                } else {
+                    lines.push(currentLine);
+                    currentLine = word;
+                }
+            }
+            
+            lines.push(currentLine);
+            return lines;
+        }
+        
+        // Simple translation function (for demo)
+        function translateText(text) {
+            if (!text) return '';
+            
+            // Dictionary of Japanese to Indonesian terms (expanded)
+            const dict = {
+                'こんにちは': 'Halo',
+                'さようなら': 'Selamat tinggal',
+                '私': 'Saya',
+                '君': 'Kamu',
+                'あなた': 'Kamu',
+                '愛してる': 'Aku mencintaimu',
+                '大好き': 'Sangat suka',
+                '何': 'Apa',
+                'なぜ': 'Kenapa',
+                'どうして': 'Mengapa',
+                '誰': 'Siapa',
+                '行く': 'Pergi',
+                '来る': 'Datang',
+                '見る': 'Melihat',
+                '食べる': 'Makan',
+                '飲む': 'Minum',
+                '学校': 'Sekolah',
+                '友達': 'Teman',
+                '家': 'Rumah',
+                '車': 'Mobil',
+                '猫': 'Kucing',
+                '犬': 'Anjing',
+                '本': 'Buku',
+                '水': 'Air',
+                '火': 'Api',
+                '空': 'Langit',
+                '海': 'Laut',
+                '山': 'Gunung',
+                '川': 'Sungai',
+                '先生': 'Guru',
+                '生徒': 'Murid',
+                '会社': 'Perusahaan',
+                '仕事': 'Pekerjaan',
+                '電話': 'Telepon',
+                'お金': 'Uang',
+                '時間': 'Waktu',
+                '今日': 'Hari ini',
+                '明日': 'Besok',
+                '昨日': 'Kemarin',
+                '年': 'Tahun',
+                '月': 'Bulan',
+                '日': 'Hari',
+                '分': 'Menit',
+                '秒': 'Detik'
+            };
+            
+            // Do translation with simple word replacement
+            let result = text;
+            Object.keys(dict).forEach(jp => {
+                const regex = new RegExp(jp, 'g');
+                result = result.replace(regex, dict[jp]);
+            });
+            
+            return result;
+        }
+        
+        // Add image to gallery
+        function addImageToGallery(imageUrl, filename) {
+            const item = document.createElement('div');
+            item.className = 'gallery-item';
+            
+            const img = document.createElement('img');
+            img.src = imageUrl;
+            img.alt = filename;
+            
+            const btn = document.createElement('button');
+            btn.className = 'download-btn';
+            btn.innerText = 'Simpan';
+            btn.onclick = () => downloadImage(imageUrl, filename);
+            
+            item.appendChild(img);
+            item.appendChild(btn);
+            gallery.appendChild(item);
+        }
+        
+        // Download a single image
+        function downloadImage(imageUrl, filename) {
+            const link = document.createElement('a');
+            link.href = imageUrl;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        // Download all images as ZIP
+        function downloadAllImages() {
+            if (translatedImages.length === 0) {
+                showStatus("Tidak ada gambar yang bisa didownload");
+                return;
+            }
+            
+            if (translatedImages.length === 1) {
+                // If just one image, download directly
+                downloadImage(translatedImages[0].url, translatedImages[0].name);
+                return;
+            }
+            
+            showStatus("Membuat file ZIP...");
+            
+            const zip = new JSZip();
+            
+            // Add all images to ZIP
+            translatedImages.forEach(img => {
+                // Convert data URL to blob
+                const dataUrl = img.url;
+                const base64Data = dataUrl.split(',')[1];
+                const blob = b64toBlob(base64Data, 'image/png');
+                
+                zip.file(img.name, blob);
+            });
+            
+            // Generate and download the ZIP
+            zip.generateAsync({type: 'blob'})
+                .then(content => {
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(content);
+                    link.download = "manga_terjemahan.zip";
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    
+                    showStatus("ZIP berhasil didownload!");
+                })
+                .catch(error => {
+                    console.error("ZIP error:", error);
+                    showStatus("Error saat membuat ZIP");
+                });
+        }
+        
+        // Helper: Convert base64 to Blob
+        function b64toBlob(b64Data, contentType) {
+            const byteCharacters = atob(b64Data);
+            const byteArrays = [];
+            
+            for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+                const slice = byteCharacters.slice(offset, offset + 512);
+                const byteNumbers = new Array(slice.length);
+                
+                for (let i = 0; i < slice.length; i++) {
+                    byteNumbers[i] = slice.charCodeAt(i);
+                }
+                
+                const byteArray = new Uint8Array(byteNumbers);
+                byteArrays.push(byteArray);
+            }
+            
+            return new Blob(byteArrays, {type: contentType});
+        }
+        
+        // Finish processing
+        function finishProcessing() {
+            isProcessing = false;
+            
+            if (translatedImages.length === 0) {
+                showStatus("Tidak ada gambar yang berhasil diproses");
+                return;
+            }
+            
+            showStatus(`${translatedImages.length} gambar berhasil diterjemahkan!`);
+            resultContainer.classList.remove('hidden');
+            updateProgress(100);
+            
+            // Auto download if only one image
+            if (translatedImages.length === 1) {
+                setTimeout(() => {
+                    downloadImage(translatedImages[0].url, translatedImages[0].name);
+                }, 500);
+            }
+        }
+        
+        // Update status text
+        function showStatus(message) {
+            status.textContent = message;
+        }
+        
+        // Update progress bar
+        function updateProgress(percent) {
+            progressBar.style.width = `${percent}%`;
+        }
+    </script>
+</body>
+</html>
