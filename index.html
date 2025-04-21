@@ -604,3 +604,113 @@
                 // Update result preview
                 updateResultPreview(cardId);
             });
+
+        // Add some basic text tools
+            const tools = card.querySelector('.tools');
+            
+            // Add text button
+            const addTextBtn = document.createElement('button');
+            addTextBtn.className = 'btn';
+            addTextBtn.textContent = 'Tambah Teks';
+            addTextBtn.onclick = function() {
+                const translatedText = card.querySelectorAll('textarea')[1].value;
+                addTextObject(canvas, translatedText || 'Ketik teks di sini');
+                updateResultPreview(cardId);
+            };
+
+        // Add eraser button
+            const eraserBtn = document.createElement('button');
+            eraserBtn.className = 'btn';
+            eraserBtn.textContent = 'Hapus Object';
+            eraserBtn.onclick = function() {
+                const activeObject = canvas.getActiveObject();
+                if (activeObject) {
+                    canvas.remove(activeObject);
+                    updateResultPreview(cardId);
+                }
+            };
+
+            // Add white box button
+            const whiteBoxBtn = document.createElement('button');
+            whiteBoxBtn.className = 'btn';
+            whiteBoxBtn.textContent = 'Kotak Putih';
+            whiteBoxBtn.onclick = function() {
+                addWhiteBox(canvas);
+                updateResultPreview(cardId);
+            };
+
+            // Clear buttons before adding to avoid duplicates
+            while (tools.children.length > 3) {
+                tools.removeChild(tools.lastChild);
+            }
+            
+            tools.appendChild(addTextBtn);
+            tools.appendChild(whiteBoxBtn);
+            tools.appendChild(eraserBtn);
+        }
+
+        // Add text object to canvas
+        function addTextObject(canvas, text) {
+            const textbox = new fabric.Textbox(text, {
+                left: 50,
+                top: 50,
+                width: 200,
+                fontSize: 20,
+                fill: 'black',
+                fontFamily: 'Arial',
+                backgroundColor: 'rgba(255,255,255,0.7)'
+            });
+            
+            canvas.add(textbox);
+            canvas.setActiveObject(textbox);
+            canvas.renderAll();
+        }
+
+        // Add white box to canvas
+        function addWhiteBox(canvas) {
+            const rect = new fabric.Rect({
+                left: 50,
+                top: 50,
+                width: 150,
+                height: 100,
+                fill: 'white',
+                stroke: '#ccc',
+                strokeWidth: 1
+            });
+            
+            canvas.add(rect);
+            canvas.setActiveObject(rect);
+            canvas.renderAll();
+        }
+
+        // Update result preview
+        function updateResultPreview(cardId) {
+            const canvas = canvasInstances[cardId];
+            if (!canvas) return;
+            
+            const resultImage = document.getElementById(`${cardId}-result`);
+            resultImage.src = canvas.toDataURL('image/png');
+            resultImage.classList.remove('hidden');
+        }
+
+        // Download result
+        function downloadResult(cardId, filename) {
+            const canvas = canvasInstances[cardId];
+            if (!canvas) return;
+            
+            const link = document.createElement('a');
+            link.href = canvas.toDataURL('image/png');
+            link.download = 'translated_' + filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+                }
+
+        // Update main status and progress
+        function updateStatus(message, progress) {
+            document.getElementById('main-status').textContent = message;
+            document.getElementById('main-progress').style.width = progress + '%';
+        }
+    </script>
+</body>
+</html>
