@@ -523,4 +523,61 @@
         // Translate text using API
         async function translateText(text, sourceLang, targetLang, callback) {
             if (!text || text.trim() === '') {
+                callback('(Tidak ada teks terdeteksi)');
+                return;
+            }
             
+            try {
+                // Using MyMemory Translation API
+                const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${sourceLang}|${targetLang}`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data && data.responseData && data.responseData.translatedText) {
+                    callback(data.responseData.translatedText);
+                } else if (data.responseStatus === 429) {
+                    callback('Batas penggunaan API tercapai. Coba lagi nanti.');
+                } else {
+                    throw new Error('Terjadi kesalahan dalam menerjemahkan teks.');
+                }
+            } catch (error) {
+                console.error('Translation error:', error);
+                callback('Error terjemahan: ' + error.message);
+            }
+        }
+        
+        // Canvas/Editor variables
+        let canvasInstances = {};
+
+        // Initialize and show the canvas editor
+        function toggleEditor(cardId, imageUrl) {
+            const card = document.getElementById(cardId);
+            const editorContainer = card.querySelector('.canvas-container');
+            
+            if (editorContainer.classList.contains('hidden')) {
+                editorContainer.classList.remove('hidden');
+                initCanvas(cardId, imageUrl);
+            } else {
+                editorContainer.classList.add('hidden');
+            }
+        }
+        
+        // Initialize canvas for image editing
+        function initCanvas(cardId, imageUrl) {
+            const card = document.getElementById(cardId);
+            const editorContainer = card.querySelector('.canvas-container');
+            
+            // Clear existing content
+            editorContainer.innerHTML = '';
+            
+            // Create canvas element
+            const canvasElement = document.createElement('canvas');
+            canvasElement.id = `canvas-${cardId}`;
+            editorContainer.appendChild(canvasElement);
+            
+            // Initialize fabric.js canvas
+            const canvas = new fabric.Canvas(canvasElement);
+            canvasInstances[cardId] = canvas;
+
+        
