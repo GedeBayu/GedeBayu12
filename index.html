@@ -3,223 +3,154 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manga Translator Enhanced</title>
-    <!-- Library utama -->
+    <title>Ichigo Manga Translator</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <!-- Tambahan library untuk pengeditan -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
-    <!-- CV.js untuk deteksi balloon -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/opencv.js/4.7.0/opencv.js" onload="onOpenCvReady();" async></script>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
             padding: 20px;
-            background-color: #f7f7f7;
+            background-color: #f5f5f5;
+            color: #333;
         }
         .container {
-            max-width: 1000px;
+            max-width: 800px;
             margin: 0 auto;
             background: white;
             padding: 20px;
             border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         h1 {
-            color: #ff6b6b;
+            color: #ff4757;
             text-align: center;
+            margin-bottom: 20px;
         }
         .upload-area {
-            border: 2px dashed #ccc;
-            padding: 30px;
+            border: 2px dashed #ddd;
+            padding: 25px;
             text-align: center;
             margin: 20px 0;
-            border-radius: 5px;
+            border-radius: 8px;
             cursor: pointer;
+            transition: all 0.3s ease;
         }
         .upload-area:hover {
-            border-color: #ff6b6b;
+            border-color: #ff4757;
             background-color: #fff0f0;
         }
         .btn {
-            background-color: #ff6b6b;
+            background-color: #ff4757;
             color: white;
             border: none;
-            padding: 8px 15px;
+            padding: 10px 18px;
             border-radius: 4px;
             cursor: pointer;
             font-size: 14px;
             margin: 5px;
+            transition: background-color 0.3s;
         }
         .btn:hover {
-            background-color: #ff5252;
+            background-color: #ff2e43;
         }
         .btn:disabled {
-            background-color: #cccccc;
-        }
-        .images-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 15px;
-            margin-top: 20px;
+            background-color: #ccc;
+            cursor: not-allowed;
         }
         .image-card {
             border: 1px solid #eee;
-            border-radius: 5px;
-            padding: 10px;
-            width: 100%;
-            box-sizing: border-box;
+            border-radius: 8px;
+            padding: 15px;
             margin-bottom: 20px;
+            background-color: white;
         }
         .image-card img {
             max-width: 100%;
             height: auto;
             display: block;
             margin-bottom: 10px;
+            border-radius: 4px;
         }
         .status {
             font-size: 14px;
             color: #666;
-            margin: 5px 0;
+            margin: 10px 0;
         }
         .progress {
-            height: 10px;
+            height: 8px;
             background-color: #f0f0f0;
-            border-radius: 5px;
+            border-radius: 4px;
             margin: 10px 0;
             overflow: hidden;
         }
         .progress-bar {
             height: 100%;
-            background-color: #ff6b6b;
+            background-color: #ff4757;
             width: 0%;
             transition: width 0.3s;
         }
         .hidden {
             display: none;
         }
-        .flex-container {
+        .text-areas {
             display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
+            gap: 15px;
+            margin: 15px 0;
         }
-        .text-container {
-            display: flex;
-            flex-direction: column;
+        .text-area-container {
             flex: 1;
-            min-width: 250px;
         }
         .text-area-label {
-            font-size: 12px;
             font-weight: bold;
-            margin-bottom: 3px;
-            color: #666;
+            margin-bottom: 5px;
+            color: #555;
         }
-        select {
-            padding: 6px;
-            border-radius: 4px;
-            border: 1px solid #ccc;
-            font-size: 14px;
-            margin-bottom: 10px;
-        }
-        .canvas-container {
-            margin: 15px 0;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            overflow: hidden;
-        }
-        .tools-panel {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            padding: 10px;
-            background-color: #f9f9f9;
-            border-radius: 5px;
-            margin-bottom: 15px;
-        }
-        .tab-container {
+        textarea {
             width: 100%;
-            margin-top: 20px;
-        }
-        .tab-buttons {
-            display: flex;
-            overflow-x: auto;
-            border-bottom: 1px solid #ddd;
-        }
-        .tab-button {
-            padding: 10px 15px;
-            background-color: #f1f1f1;
-            border: none;
-            cursor: pointer;
-            transition: 0.3s;
-            font-size: 14px;
-            white-space: nowrap;
-        }
-        .tab-button:hover {
-            background-color: #ddd;
-        }
-        .tab-button.active {
-            background-color: #ff6b6b;
-            color: white;
-        }
-        .tab-content {
-            display: none;
-            padding: 15px;
-            border: 1px solid #ddd;
-            border-top: none;
-        }
-        .tab-content.active {
-            display: block;
-        }
-        .font-settings {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 10px;
-        }
-        .balloon-list {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            max-height: 300px;
-            overflow-y: auto;
-            padding: 10px;
-            border: 1px solid #eee;
-            border-radius: 5px;
-        }
-        .balloon-item {
-            display: flex;
-            align-items: center;
             padding: 8px;
             border: 1px solid #ddd;
             border-radius: 4px;
-            cursor: pointer;
+            resize: vertical;
+            min-height: 100px;
         }
-        .balloon-item:hover {
-            background-color: #f0f0f0;
-        }
-        .balloon-item.active {
-            background-color: #ffe6e6;
-            border-color: #ff6b6b;
-        }
-        .balloon-preview {
-            width: 50px;
-            height: 50px;
-            background-size: cover;
+        select {
+            padding: 8px;
             border-radius: 4px;
+            border: 1px solid #ddd;
             margin-right: 10px;
+            background-color: white;
         }
-        .balloon-text {
-            flex: 1;
+        .options {
+            margin-bottom: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
         }
-        .opencv-status {
-            color: orange;
-            font-weight: bold;
-            text-align: center;
+        .canvas-container {
+            margin: 15px 0;
+            border: 1px solid #eee;
+            border-radius: 4px;
         }
-        @media (max-width: 768px) {
-            .flex-container {
+        .tools {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+        }
+        .result-image {
+            max-width: 100%;
+            border: 1px solid #eee;
+            margin-top: 15px;
+            border-radius: 4px;
+        }
+        @media (max-width: 600px) {
+            .text-areas {
                 flex-direction: column;
             }
         }
@@ -227,42 +158,32 @@
 </head>
 <body>
     <div class="container">
-        <h1>Manga Translator Enhanced</h1>
-        <p class="status" id="main-status">Siap menerjemahkan manga (Support WebP & ZIP)</p>
-        <p class="opencv-status" id="opencv-status">Memuat OpenCV untuk deteksi balloon...</p>
+        <h1>Ichigo Manga Translator</h1>
+        <p class="status" id="main-status">Upload manga untuk diterjemahkan (JPG, PNG, WebP, ZIP)</p>
         
-        <div>
-            <label for="source-language">Bahasa Sumber:</label>
-            <select id="source-language">
-                <option value="ja">Jepang</option>
-                <option value="ko">Korea</option>
-                <option value="zh">Mandarin</option>
-                <option value="en">Inggris</option>
-            </select>
-            
-            <label for="target-language">Bahasa Terjemahan:</label>
-            <select id="target-language">
-                <option value="id">Indonesia</option>
-                <option value="en">Inggris</option>
-                <option value="es">Spanyol</option>
-                <option value="fr">Prancis</option>
-                <option value="de">Jerman</option>
-                <option value="ko">Korea</option>
-                <option value="zh">Mandarin</option>
-            </select>
-            
-            <label for="detection-mode">Mode Deteksi:</label>
-            <select id="detection-mode">
-                <option value="auto">Otomatis (Balloon + OCR)</option>
-                <option value="manual">Manual</option>
-                <option value="balloon">Hanya Balloon</option>
-                <option value="ocr">Hanya OCR</option>
-            </select>
+        <div class="options">
+            <div>
+                <label for="source-language">Dari:</label>
+                <select id="source-language">
+                    <option value="ja">Jepang</option>
+                    <option value="ko">Korea</option>
+                    <option value="zh">Mandarin</option>
+                    <option value="en">Inggris</option>
+                </select>
+            </div>
+            <div>
+                <label for="target-language">Ke:</label>
+                <select id="target-language">
+                    <option value="id">Indonesia</option>
+                    <option value="en">Inggris</option>
+                    <option value="es">Spanyol</option>
+                    <option value="fr">Prancis</option>
+                </select>
+            </div>
         </div>
         
         <div class="upload-area" id="upload-area">
-            <p><strong>Klik atau Seret file gambar/ZIP ke sini</strong></p>
-            <p>Mendukung format: JPG, PNG, WebP, dan ZIP</p>
+            <p><strong>Klik atau Seret file manga ke sini</strong></p>
             <input type="file" id="file-input" class="hidden" accept="image/jpeg,image/png,image/webp,application/zip" multiple>
             <button class="btn" onclick="document.getElementById('file-input').click()">Pilih File</button>
         </div>
@@ -271,92 +192,73 @@
             <div class="progress-bar" id="main-progress"></div>
         </div>
         
-        <div class="images-container" id="images-container">
-            <!-- Gambar akan ditambahkan di sini -->
+        <div id="images-container">
+            <!-- Images will appear here -->
         </div>
     </div>
 
     <script>
-        // Variabel global
-        let imageFiles = [];
-        let currentProcessingIndex = 0;
-        let cvLoaded = false;
-        let canvasInstances = {};
+        // Global variables
+        let images = [];
         
-        // Event listeners
+        // DOM ready
         document.addEventListener('DOMContentLoaded', function() {
             const fileInput = document.getElementById('file-input');
             const uploadArea = document.getElementById('upload-area');
             
-            // File input change event
-            fileInput.addEventListener('change', handleFileSelect);
+            // Handle file selection
+            fileInput.addEventListener('change', function(e) {
+                handleFiles(e.target.files);
+            });
             
-            // Drag and drop events
+            // Drag and drop handling
             uploadArea.addEventListener('dragover', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                this.style.borderColor = '#ff6b6b';
+                this.style.borderColor = '#ff4757';
                 this.style.backgroundColor = '#fff0f0';
             });
             
             uploadArea.addEventListener('dragleave', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                this.style.borderColor = '#ccc';
+                this.style.borderColor = '#ddd';
                 this.style.backgroundColor = 'white';
             });
             
             uploadArea.addEventListener('drop', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
-                this.style.borderColor = '#ccc';
+                this.style.borderColor = '#ddd';
                 this.style.backgroundColor = 'white';
-                
-                const dt = e.dataTransfer;
-                handleFiles(dt.files);
+                handleFiles(e.dataTransfer.files);
             });
         });
         
-        // OpenCV ready callback
-        function onOpenCvReady() {
-            cvLoaded = true;
-            document.getElementById('opencv-status').textContent = 'OpenCV siap digunakan untuk deteksi balloon';
-            document.getElementById('opencv-status').style.color = 'green';
-        }
-        
-        // Handle file selection
-        function handleFileSelect(e) {
-            handleFiles(e.target.files);
-        }
-        
-        // Process selected files
+        // Process the selected files
         function handleFiles(files) {
             if (!files.length) return;
             
             updateStatus('Memproses file...', 10);
-            imageFiles = [];
-            currentProcessingIndex = 0;
+            images = [];
             document.getElementById('images-container').innerHTML = '';
             
-            // Process each file
-            Array.from(files).forEach((file, index) => {
+            Array.from(files).forEach((file) => {
                 if (file.type.startsWith('image/')) {
-                    // Handle image files
                     processImageFile(file);
                 } else if (file.type === 'application/zip') {
-                    // Handle ZIP files
                     processZipFile(file);
                 }
             });
         }
         
-        // Process individual image file
+        // Process a single image file
         function processImageFile(file) {
             const reader = new FileReader();
             reader.onload = function(e) {
                 const imageUrl = e.target.result;
-                addImageToDisplay(imageUrl, file.name);
-                imageFiles.push({
+                addImageToUI(imageUrl, file.name);
+                images.push({
                     name: file.name,
                     url: imageUrl
                 });
@@ -364,9 +266,9 @@
             reader.readAsDataURL(file);
         }
         
-        // Process ZIP file
+        // Process a ZIP file
         function processZipFile(file) {
-            updateStatus('Ekstrak file ZIP...', 20);
+            updateStatus('Mengekstrak ZIP...', 20);
             
             const reader = new FileReader();
             reader.onload = function(e) {
@@ -374,24 +276,20 @@
                 
                 zip.loadAsync(e.target.result)
                     .then(function(contents) {
-                        updateStatus('ZIP berhasil dibuka', 40);
+                        updateStatus('Memproses gambar dari ZIP...', 40);
                         
-                        // Get all image files from the ZIP
                         const imagePromises = [];
                         let totalImages = 0;
                         
                         contents.forEach(function(relativePath, zipEntry) {
                             if (!zipEntry.dir) {
-                                const fileExtension = relativePath.split('.').pop().toLowerCase();
-                                const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
-                                
-                                if (allowedExtensions.includes(fileExtension)) {
+                                const fileExt = relativePath.split('.').pop().toLowerCase();
+                                if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(fileExt)) {
                                     totalImages++;
                                     const promise = zipEntry.async('blob').then(function(blob) {
-                                        const imageBlob = new Blob([blob], { type: `image/${fileExtension}` });
                                         return {
                                             name: zipEntry.name,
-                                            blob: imageBlob
+                                            blob: new Blob([blob], { type: `image/${fileExt}` })
                                         };
                                     });
                                     imagePromises.push(promise);
@@ -399,26 +297,24 @@
                             }
                         });
                         
-                        // Once all images are extracted
                         Promise.all(imagePromises).then(function(imageObjects) {
-                            updateStatus(`Ditemukan ${imageObjects.length} gambar dalam ZIP`, 60);
+                            updateStatus(`Ditemukan ${imageObjects.length} gambar`, 60);
                             
                             imageObjects.forEach(function(imgObj, index) {
                                 const reader = new FileReader();
                                 reader.onload = function(e) {
                                     const imageUrl = e.target.result;
-                                    addImageToDisplay(imageUrl, imgObj.name);
-                                    imageFiles.push({
+                                    addImageToUI(imageUrl, imgObj.name);
+                                    images.push({
                                         name: imgObj.name,
                                         url: imageUrl
                                     });
                                     
-                                    // Update progress as images are processed
                                     const progress = 60 + Math.floor((index + 1) / imageObjects.length * 40);
-                                    updateStatus(`Memproses gambar ${index + 1}/${imageObjects.length}`, progress);
+                                    updateStatus(`Memuat gambar ${index + 1}/${imageObjects.length}`, progress);
                                     
                                     if (index === imageObjects.length - 1) {
-                                        updateStatus('Semua gambar berhasil dimuat', 100);
+                                        updateStatus('Siap untuk diterjemahkan', 100);
                                     }
                                 };
                                 reader.readAsDataURL(imgObj.blob);
@@ -427,457 +323,162 @@
                     })
                     .catch(function(error) {
                         console.error('Error reading ZIP:', error);
-                        updateStatus('Error membuka file ZIP', 0);
+                        updateStatus('Error membuka ZIP', 0);
                     });
             };
             reader.readAsArrayBuffer(file);
         }
         
-        // Add image to display container
-        function addImageToDisplay(imageUrl, filename) {
-            const imagesContainer = document.getElementById('images-container');
+        // Add image to the UI
+        function addImageToUI(imageUrl, filename) {
+            const container = document.getElementById('images-container');
             const cardId = 'card-' + Math.random().toString(36).substring(2, 15);
             
             const card = document.createElement('div');
             card.className = 'image-card';
             card.id = cardId;
             
+            // Image
             const img = document.createElement('img');
             img.src = imageUrl;
             img.alt = filename;
-            img.onload = function() {
-                // Preload image for processing
-                const preloadImg = new Image();
-                preloadImg.src = imageUrl;
-            };
             
+            // File name
             const title = document.createElement('p');
             title.textContent = filename;
+            title.style.fontWeight = 'bold';
             
+            // Status
             const status = document.createElement('p');
             status.className = 'status';
-            status.textContent = 'Siap diproses';
+            status.textContent = 'Siap untuk diterjemahkan';
             
+            // Progress bar
             const progress = document.createElement('div');
             progress.className = 'progress';
             const progressBar = document.createElement('div');
             progressBar.className = 'progress-bar';
             progress.appendChild(progressBar);
             
-            // Create tabs for different functions
-            const tabContainer = document.createElement('div');
-            tabContainer.className = 'tab-container hidden';
+            // Text areas for original and translated text
+            const textAreas = document.createElement('div');
+            textAreas.className = 'text-areas';
             
-            const tabButtons = document.createElement('div');
-            tabButtons.className = 'tab-buttons';
-            
-            const tabDetection = document.createElement('button');
-            tabDetection.className = 'tab-button active';
-            tabDetection.textContent = 'Deteksi & Terjemahan';
-            tabDetection.onclick = function() { switchTab(cardId, 0); };
-            
-            const tabEditor = document.createElement('button');
-            tabEditor.className = 'tab-button';
-            tabEditor.textContent = 'Editor Gambar';
-            tabEditor.onclick = function() { switchTab(cardId, 1); };
-            
-            const tabResult = document.createElement('button');
-            tabResult.className = 'tab-button';
-            tabResult.textContent = 'Hasil & Unduh';
-            tabResult.onclick = function() { switchTab(cardId, 2); };
-            
-            tabButtons.appendChild(tabDetection);
-            tabButtons.appendChild(tabEditor);
-            tabButtons.appendChild(tabResult);
-            
-            // Tab content 1: Detection & Translation
-            const tabContent1 = document.createElement('div');
-            tabContent1.className = 'tab-content active';
-            
-            // Text container with original and translated text areas
-            const textContainer = document.createElement('div');
-            textContainer.className = 'flex-container';
-            
-            // Original text container
+            // Original text
             const originalTextContainer = document.createElement('div');
-            originalTextContainer.className = 'text-container';
+            originalTextContainer.className = 'text-area-container';
             
             const originalTextLabel = document.createElement('div');
             originalTextLabel.className = 'text-area-label';
-            originalTextLabel.textContent = 'Teks Terdeteksi:';
+            originalTextLabel.textContent = 'Teks Asli:';
             
             const originalTextArea = document.createElement('textarea');
-            originalTextArea.rows = 5;
-            originalTextArea.style.width = '100%';
             originalTextArea.placeholder = 'Teks terdeteksi akan muncul di sini';
             
             originalTextContainer.appendChild(originalTextLabel);
             originalTextContainer.appendChild(originalTextArea);
             
-            // Translated text container
+            // Translated text
             const translatedTextContainer = document.createElement('div');
-            translatedTextContainer.className = 'text-container';
+            translatedTextContainer.className = 'text-area-container';
             
             const translatedTextLabel = document.createElement('div');
             translatedTextLabel.className = 'text-area-label';
             translatedTextLabel.textContent = 'Terjemahan:';
             
             const translatedTextArea = document.createElement('textarea');
-            translatedTextArea.rows = 5;
-            translatedTextArea.style.width = '100%';
             translatedTextArea.placeholder = 'Terjemahan akan muncul di sini';
             
             translatedTextContainer.appendChild(translatedTextLabel);
             translatedTextContainer.appendChild(translatedTextArea);
             
-            // Balloon detection results
-            const balloonContainer = document.createElement('div');
-            balloonContainer.className = 'ball
-              // This would require history implementation
-            alert('Redo functionality requires history implementation');
+            textAreas.appendChild(originalTextContainer);
+            textAreas.appendChild(translatedTextContainer);
+            
+            // Editor
+            const editorContainer = document.createElement('div');
+            editorContainer.className = 'canvas-container hidden';
+            
+            // Tools
+            const tools = document.createElement('div');
+            tools.className = 'tools';
+            
+            // Process button
+            const processBtn = document.createElement('button');
+            processBtn.className = 'btn';
+            processBtn.textContent = 'Deteksi & Terjemahkan';
+            processBtn.onclick = function() {
+                processImage(cardId, imageUrl, filename);
+            };
+            
+            // Edit button
+            const editBtn = document.createElement('button');
+            editBtn.className = 'btn';
+            editBtn.textContent = 'Edit Gambar';
+            editBtn.onclick = function() {
+                toggleEditor(cardId, imageUrl);
+            };
+            
+            // Download button
+            const downloadBtn = document.createElement('button');
+            downloadBtn.className = 'btn';
+            downloadBtn.textContent = 'Unduh Hasil';
+            downloadBtn.onclick = function() {
+                downloadResult(cardId, filename);
+            };
+            
+            // Result image
+            const resultImage = document.createElement('img');
+            resultImage.className = 'result-image hidden';
+            resultImage.id = `${cardId}-result`;
+            
+            // Assemble the card
+            card.appendChild(img);
+            card.appendChild(title);
+            card.appendChild(status);
+            card.appendChild(progress);
+            card.appendChild(textAreas);
+            card.appendChild(tools);
+            tools.appendChild(processBtn);
+            tools.appendChild(editBtn);
+            tools.appendChild(downloadBtn);
+            card.appendChild(editorContainer);
+            card.appendChild(resultImage);
+            
+            container.appendChild(card);
         }
         
-        // Update result preview
-        function updateResult(cardId) {
-            const canvas = canvasInstances[cardId];
-            if (!canvas) return;
+        // Process image (OCR and translation)
+        function processImage(cardId, imageUrl, filename) {
+            const card = document.getElementById(cardId);
+            const statusElement = card.querySelector('.status');
+            const progressBar = card.querySelector('.progress-bar');
+            const originalTextArea = card.querySelectorAll('textarea')[0];
+            const translatedTextArea = card.querySelectorAll('textarea')[1];
+            const processBtn = card.querySelector('.btn');
             
-            const resultImage = document.getElementById(`${cardId}-result`);
-            resultImage.src = canvas.toDataURL('image/png');
-            resultImage.style.display = 'block';
-        }
-        
-        // Download edited image
-        function downloadResult(cardId, filename) {
-            const canvas = canvasInstances[cardId];
-            if (!canvas) return;
+            // Update UI
+            processBtn.disabled = true;
+            statusElement.textContent = 'Mendeteksi teks...';
+            progressBar.style.width = '20%';
             
-            const link = document.createElement('a');
-            link.href = canvas.toDataURL('image/png');
-            link.download = 'translated_' + filename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-        
-        // Process image with detection and translation
-        function processImage(cardElement, imageUrl, filename) {
-            const cardId = cardElement.id;
-            const statusElement = cardElement.querySelector('.status');
-            const progressElement = cardElement.querySelector('.progress-bar');
-            const originalTextArea = cardElement.querySelectorAll('textarea')[0];
-            const translatedTextArea = cardElement.querySelectorAll('textarea')[1];
-            const processBtn = cardElement.querySelector('.btn');
-            const balloonContainer = cardElement.querySelector('.balloon-list');
-            
-            // Get selected options
+            // Get language settings
             const sourceLang = document.getElementById('source-language').value;
             const targetLang = document.getElementById('target-language').value;
-            const detectionMode = document.getElementById('detection-mode').value;
-            
-            // Disable button and update status
-            processBtn.disabled = true;
-            statusElement.textContent = 'Memproses gambar...';
-            progressElement.style.width = '10%';
-            
-            // First, detect speech balloons if mode includes balloon detection
-            if (detectionMode === 'auto' || detectionMode === 'balloon') {
-                if (!cvLoaded) {
-                    statusElement.textContent = 'OpenCV belum siap. Tunggu sebentar...';
-                    setTimeout(() => processImage(cardElement, imageUrl, filename), 1000);
-                    return;
-                }
-                
-                statusElement.textContent = 'Mendeteksi balloon teks...';
-                detectBalloons(imageUrl, cardId, function(balloons) {
-                    progressElement.style.width = '30%';
-                    displayBalloons(balloons, cardId, imageUrl);
-                    
-                    if (detectionMode === 'auto' || detectionMode === 'ocr') {
-                        // Continue with OCR
-                        performOCR(imageUrl, sourceLang, cardId, function(text) {
-                            originalTextArea.value = text;
-                            translateText(text, sourceLang, targetLang, function(translatedText) {
-                                translatedTextArea.value = translatedText;
-                                progressElement.style.width = '100%';
-                                statusElement.textContent = 'Proses selesai!';
-                                processBtn.disabled = false;
-                            });
-                        });
-                    } else {
-                        progressElement.style.width = '100%';
-                        statusElement.textContent = 'Deteksi balloon selesai!';
-                        processBtn.disabled = false;
-                    }
-                });
-            } else if (detectionMode === 'ocr') {
-                // Only OCR
-                performOCR(imageUrl, sourceLang, cardId, function(text) {
-                    originalTextArea.value = text;
-                    translateText(text, sourceLang, targetLang, function(translatedText) {
-                        translatedTextArea.value = translatedText;
-                        progressElement.style.width = '100%';
-                        statusElement.textContent = 'OCR dan terjemahan selesai!';
-                        processBtn.disabled = false;
-                    });
-                });
-            } else {
-                // Manual mode - just initialize the editor
-                initializeCanvas(cardId, imageUrl);
-                // Switch to editor tab
-                switchTab(cardId, 1);
-                progressElement.style.width = '100%';
-                statusElement.textContent = 'Editor siap digunakan';
-                processBtn.disabled = false;
-            }
-        }
-        
-        // Detect speech balloons using OpenCV.js
-        function detectBalloons(imageUrl, cardId, callback) {
-            const img = new Image();
-            img.crossOrigin = 'Anonymous';
-            img.onload = function() {
-                // Create canvas to process the image
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                canvas.width = img.width;
-                canvas.height = img.height;
-                ctx.drawImage(img, 0, 0);
-                
-                const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                
-                try {
-                    // Convert to OpenCV format
-                    const src = cv.matFromImageData(imgData);
-                    const dst = new cv.Mat();
-                    const gray = new cv.Mat();
-                    const thresh = new cv.Mat();
-                    
-                    // Convert to grayscale
-                    cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-                    
-                    // Apply threshold to get binary image
-                    cv.threshold(gray, thresh, 200, 255, cv.THRESH_BINARY);
-                    
-                    // Find contours
-                    let contours = new cv.MatVector();
-                    let hierarchy = new cv.Mat();
-                    cv.findContours(thresh, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-                    
-                    // Filter contours to find potential balloons
-                    const balloons = [];
-                    for (let i = 0; i < contours.size(); i++) {
-                        const cnt = contours.get(i);
-                        const area = cv.contourArea(cnt);
-                        
-                        // Filter by area - adjust based on image size
-                        const minArea = (img.width * img.height) * 0.001; // 0.1% of image size
-                        const maxArea = (img.width * img.height) * 0.2;  // 20% of image size
-                        
-                        if (area > minArea && area < maxArea) {
-                            // Get bounding rect
-                            const rect = cv.boundingRect(cnt);
-                            
-                            // Store balloon info
-                            balloons.push({
-                                x: rect.x,
-                                y: rect.y,
-                                width: rect.width,
-                                height: rect.height,
-                                area: area
-                            });
-                        }
-                    }
-                    
-                    // Clean up
-                    src.delete(); gray.delete(); thresh.delete();
-                    contours.delete(); hierarchy.delete();
-                    
-                    callback(balloons);
-                    
-                } catch (err) {
-                    console.error('Error in OpenCV process:', err);
-                    callback([]);
-                }
-            };
-            img.src = imageUrl;
-        }
-        
-        // Display detected balloons in the UI
-        function displayBalloons(balloons, cardId, imageUrl) {
-            const balloonContainer = document.getElementById(`${cardId}-balloons`);
-            if (!balloonContainer) return;
-            
-            balloonContainer.innerHTML = '';
-            balloonContainer.classList.remove('hidden');
-            
-            if (balloons.length === 0) {
-                balloonContainer.innerHTML = '<p>Tidak dapat mendeteksi balloon. Coba gunakan mode manual.</p>';
-                return;
-            }
-            
-            const img = new Image();
-            img.onload = function() {
-                balloons.forEach((balloon, index) => {
-                    const balloonItem = document.createElement('div');
-                    balloonItem.className = 'balloon-item';
-                    balloonItem.dataset.index = index;
-                    
-                    // Create small canvas for the balloon preview
-                    const canvas = document.createElement('canvas');
-                    canvas.width = 50;
-                    canvas.height = 50;
-                    const ctx = canvas.getContext('2d');
-                    
-                    // Draw the balloon area from the original image
-                    ctx.drawImage(
-                        img, 
-                        balloon.x, balloon.y, balloon.width, balloon.height,
-                        0, 0, 50, 50
-                    );
-                    
-                    const previewDiv = document.createElement('div');
-                    previewDiv.className = 'balloon-preview';
-                    previewDiv.style.backgroundImage = `url(${canvas.toDataURL()})`;
-                    
-                    const textDiv = document.createElement('div');
-                    textDiv.className = 'balloon-text';
-                    textDiv.textContent = `Balloon #${index + 1} (${balloon.width}x${balloon.height})`;
-                    
-                    const ocrBtn = document.createElement('button');
-                    ocrBtn.className = 'btn';
-                    ocrBtn.textContent = 'OCR';
-                    ocrBtn.onclick = function(e) {
-                        e.stopPropagation();
-                        ocrBalloon(cardId, imageUrl, balloon);
-                    };
-                    
-                    balloonItem.appendChild(previewDiv);
-                    balloonItem.appendChild(textDiv);
-                    balloonItem.appendChild(ocrBtn);
-                    
-                    // Click to select this balloon in editor
-                    balloonItem.addEventListener('click', function() {
-                        selectBalloon(cardId, balloon);
-                    });
-                    
-                    balloonContainer.appendChild(balloonItem);
-                });
-            };
-            img.src = imageUrl;
-        }
-        
-        // Perform OCR on a specific balloon
-        function ocrBalloon(cardId, imageUrl, balloon) {
-            const card = document.getElementById(cardId);
-            const statusElement = card.querySelector('.status');
-            const originalTextArea = card.querySelectorAll('textarea')[0];
-            
-            statusElement.textContent = 'Mendeteksi teks pada balloon...';
-            
-            const img = new Image();
-            img.crossOrigin = 'Anonymous';
-            img.onload = function() {
-                // Create canvas to crop the image
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                canvas.width = balloon.width;
-                canvas.height = balloon.height;
-                
-                // Draw only the balloon area
-                ctx.drawImage(
-                    img, 
-                    balloon.x, balloon.y, balloon.width, balloon.height,
-                    0, 0, balloon.width, balloon.height
-                );
-                
-                const croppedImageUrl = canvas.toDataURL();
-                
-                // Get source language
-                const sourceLang = document.getElementById('source-language').value;
-                const tesseractLang = mapLanguageToTesseract(sourceLang);
-                
-                // Initialize Tesseract
-                const worker = Tesseract.createWorker();
-                
-                (async () => {
-                    try {
-                        await worker.load();
-                        await worker.loadLanguage(tesseractLang);
-                        await worker.initialize(tesseractLang);
-                        
-                        statusElement.textContent = 'Menganalisa teks...';
-                        const result = await worker.recognize(croppedImageUrl);
-                        
-                        // Display detected text
-                        const detectedText = result.data.text.trim();
-                        originalTextArea.value += (originalTextArea.value ? '\n\n' : '') + 
-                                                 `[Balloon #${balloon.x},${balloon.y}]: ${detectedText}`;
-                        
-                        // Translate the text
-                        const targetLang = document.getElementById('target-language').value;
-                        translateText(detectedText, sourceLang, targetLang, function(translatedText) {
-                            const translatedTextArea = card.querySelectorAll('textarea')[1];
-                            translatedTextArea.value += (translatedTextArea.value ? '\n\n' : '') + 
-                                                      `[Balloon #${balloon.x},${balloon.y}]: ${translatedText}`;
-                            
-                            statusElement.textContent = 'Balloon teks terdeteksi dan diterjemahkan!';
-                        });
-                        
-                        await worker.terminate();
-                    } catch (error) {
-                        console.error('Error in OCR:', error);
-                        statusElement.textContent = 'Error OCR: ' + error.message;
-                    }
-                })();
-            };
-            img.src = imageUrl;
-        }
-        
-        // Select balloon in the editor
-        function selectBalloon(cardId, balloon) {
-            const canvas = canvasInstances[cardId];
-            if (!canvas) return;
-            
-            // Create a rectangle to highlight the balloon
-            const rect = new fabric.Rect({
-                left: balloon.x * canvas.getZoom(),
-                top: balloon.y * canvas.getZoom(),
-                width: balloon.width * canvas.getZoom(),
-                height: balloon.height * canvas.getZoom(),
-                fill: 'transparent',
-                stroke: '#ff0000',
-                strokeWidth: 2,
-                selectable: true
-            });
-            
-            canvas.add(rect);
-            canvas.setActiveObject(rect);
-            canvas.renderAll();
-            
-            // Switch to editor tab
-            const card = document.getElementById(cardId);
-            const tabs = card.querySelectorAll('.tab-button');
-            tabs[1].click();
-        }
-        
-        // Perform OCR on full image
-        function performOCR(imageUrl, sourceLang, cardId, callback) {
-            const card = document.getElementById(cardId);
-            const statusElement = card.querySelector('.status');
-            const progressElement = card.querySelector('.progress-bar');
-            
-            statusElement.textContent = 'Mendeteksi teks dengan OCR...';
-            progressElement.style.width = '40%';
             
             // Map source language to Tesseract language code
-            const tesseractLang = mapLanguageToTesseract(sourceLang);
+            const tesseractLang = {
+                'ja': 'jpn',
+                'ko': 'kor',
+                'zh': 'chi_sim',
+                'en': 'eng'
+            }[sourceLang] || 'eng';
             
-            // Initialize Tesseract
+            // Initialize Tesseract worker
             const worker = Tesseract.createWorker({
-                logger: function(m) {
+                logger: m => {
                     if (m.status === 'recognizing text') {
-                        progressElement.style.width = (40 + m.progress * 30) + '%';
+                        progressBar.style.width = (20 + m.progress * 40) + '%';
                     }
                 }
             });
@@ -888,67 +489,38 @@
                     await worker.loadLanguage(tesseractLang);
                     await worker.initialize(tesseractLang);
                     
+                    // Perform OCR
                     statusElement.textContent = 'Menganalisa gambar...';
                     const result = await worker.recognize(imageUrl);
-                    progressElement.style.width = '70%';
+                    const text = result.data.text.trim();
                     
-                    // Return detected text
-                    const detectedText = result.data.text.trim();
+                    // Update original text area
+                    originalTextArea.value = text;
+                    progressBar.style.width = '70%';
+                    
+                    // Translate the text
+                    statusElement.textContent = 'Menerjemahkan teks...';
+                    translateText(text, sourceLang, targetLang, function(translatedText) {
+                        translatedTextArea.value = translatedText;
+                        progressBar.style.width = '100%';
+                        statusElement.textContent = 'Terjemahan selesai!';
+                        processBtn.disabled = false;
+                        
+                        // Initialize the canvas for editing
+                        initCanvas(cardId, imageUrl);
+                    });
+                    
                     await worker.terminate();
-                    
-                    callback(detectedText);
                 } catch (error) {
-                    console.error('Error in OCR:', error);
+                    console.error('OCR error:', error);
                     statusElement.textContent = 'Error: ' + error.message;
-                    progressElement.style.width = '0%';
-                    callback('');
+                    progressBar.style.width = '0%';
+                    processBtn.disabled = false;
                 }
             })();
         }
         
-        // Map language code to Tesseract language code
-        function mapLanguageToTesseract(lang) {
-            const map = {
-                'ja': 'jpn',
-                'ko': 'kor',
-                'zh': 'chi_sim',
-                'en': 'eng'
-            };
-            return map[lang] || 'eng';
-        }
-        
-        // Translation function using MyMemory Translation API
+        // Translate text using API
         async function translateText(text, sourceLang, targetLang, callback) {
             if (!text || text.trim() === '') {
-                callback('(Tidak ada teks yang terdeteksi)');
-                return;
-            }
             
-            try {
-                // Using MyMemory Translation API (free and doesn't require API key for limited usage)
-                const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${sourceLang}|${targetLang}`;
-                
-                const response = await fetch(url);
-                const data = await response.json();
-                
-                if (data && data.responseData && data.responseData.translatedText) {
-                    callback(data.responseData.translatedText);
-                } else if (data.responseStatus && data.responseStatus === 429) {
-                    callback('Batas penggunaan API terjemahan tercapai. Coba lagi nanti.');
-                } else {
-                    throw new Error('Terjadi kesalahan dalam menerjemahkan teks.');
-                }
-            } catch (error) {
-                console.error('Translation error:', error);
-                callback('Error terjemahan: ' + error.message);
-            }
-        }
-        
-        // Update main status and progress
-        function updateStatus(message, progress) {
-            document.getElementById('main-status').textContent = message;
-            document.getElementById('main-progress').style.width = progress + '%';
-        }
-    </script>
-</body>
-</html>
